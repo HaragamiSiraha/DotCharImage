@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>DotCharImage</title>
+
+<style>
+  html, body {
+    height: 100%;
+    margin: 0px;
+    padding: 0px;
+  }
+  td {
+    border:1px solid #FCC;
+    padding: 2px 6px 6px 2px;
+    text-align: center;
+  }
+  #eMain {
+    width : 100%;
+    height: 100%;
+    border: 1px solid #C00;
+  }
+  #eCtrl {
+    font-size: 2em;
+    height: 3em;
+  }
+  #eWidth, #eHeight {
+    width: 4em;
+    text-align: center;
+    font-size: 1em;
+  }
+  #eImage {
+    width :100%;
+    height:600px;
+    object-fit: contain;
+  }
+  #eChar {
+    width: 50%;
+    font-size: 50%;
+  }
+</style>
+
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const eImage = document.getElementById("eImage");
+    const eChar  = document.getElementById("eChar");
+    
+    
+    const isValidFile =
+      e => e.dataTransfer.types.indexOf("Files") >= 0
+        && e.dataTransfer.items.length > 0
+        && e.dataTransfer.items[0].type.indexOf("image/") >= 0;
+    
+    let lock = false;
+    const dragEvents = {
+      "dragover": e => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        e.dataTransfer.dropEffect
+          = (lock || !isValidFile(e)) ? "none" : "link";
+      },
+      
+      "dragleave": e => {
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      
+      "drop": e => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const file = e.dataTransfer.files[0];
+        if (file.type.indexOf("image/") >= 0) {
+          lock = true;
+          loadImage(file).then(e => lock=false);
+        }
+      }
+    };
+    for (let k in dragEvents) {
+      document.body.addEventListener(k,dragEvents[k])
+    }
+    
+    const loadImage = file => {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        
+        eImage.onload = e => {
+          URL.revokeObjectURL(url);
+          resolve(true);
+          
+          let w = +eWidth .value
+          let h = +eHeight.value
+          
+          if (h == "") { // auto
+            h = (w / eImage.naturalWidth * eImage.naturalHeight);
+          }
+          
+          eChar.innerHTML = makeChar(eImage,w|0,h|0);
+        };
+        
+        eImage.onerror = e => {
+          URL.revokeObjectURL(url);
+          resolve(false);
+        };
+        
+        eImage.src = url;
+      });
+    };
+    
+    const canvas = document.createElement("canvas");
+    const makeChar = (img,w,h) => {  
+      canvas.width  = w;
+      canvas.height = h;
+      
+      const context = canvas.getContext('2d');
+      context.drawImage(img,0,0,w,h);
+      
+      const data = context.getImageData(0,0,w,h).data;
+      
+      let chars = "";
+      for   (let j = 0; j < h; j+=2) {
+        for (let i = 0; i < w; i++ ) {
+          fore = getColorCode(data, i+j*w);
+          back = getColorCode(data, i+j*w+w);
+          chars += `<span style='color: ${fore}; background-color: ${back};'>▀</span>`;
+        }
+        chars += `<br>`;
+      }
+      return chars;
+    }
+    
+    const getColorCode = (data, index) => {
+      const i = index * 4;
+      const r = data[i+0];
+      const g = data[i+1];
+      const b = data[i+2];
+      const a = data[i+3];
+      
+      return `rgba(${r},${g},${b},${a})`;
+    }
+    
+  });
+</script>
+
+</head>
+<body>
+
+<table id="eMain">
+  <tr><td id="eCtrl"><input id="eWidth" type="text" value="48" />×<input id="eHeight" type="text" value="" /></td>
+      <td id="eChar" rowspan="2" />
+  </tr>
+  <tr><td><img id="eImage"/></td></tr>
+</table>
+
+</body>
+</html>
